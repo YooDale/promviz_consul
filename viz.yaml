@@ -34,9 +34,9 @@ services:
 #      - ./test_conf/nginx/prometheus-nginxlog-exporter.yaml:/etc/prometheus-nginxlog-exporter.yml
 #      - ./test_conf/nginx/logs:/var/log/nginx
 #    command: -config-file /etc/prometheus-nginxlog-exporter.yml
-    networks:
-      vpcbr:
-        ipv4_address: 10.5.0.235
+#    networks:
+#      vpcbr:
+#        ipv4_address: 10.5.0.235
 
   nginx_proxy:
     image: nicholasjackson/consul-envoy:1.15.4-v1.27.2
