@@ -1,0 +1,210 @@
+version: "3.8"
+services:
+
+  consul:
+    image: consul:1.15.4
+    command: ["consul","agent","-config-file=/config/consul-single-dc.hcl","-config-dir=/config"]
+    volumes:
+      - "./consul_config:/config"
+    ports:
+      - 8500:8500
+    networks:
+      vpcbr:
+        ipv4_address: 10.5.0.2
+
+  # Define web service and envoy sidecar proxy
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    expose:
+      - 80
+    volumes:
+      - ./test_conf/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./test_conf/nginx/logs:/var/log/nginx
+    networks:
+      vpcbr:
+        ipv4_address: 10.5.0.3
+  # logs to metrics (prometheus)      
+#  prometheus-nginxlog-exporter:
+#    container_name: nginx-exporter
+#    image: quay.io/martinhelmich/prometheus-nginxlog-exporter
+#    ports:
+#      - 4040:4040
+#    volumes:
+#      - ./test_conf/nginx/prometheus-nginxlog-exporter.yaml:/etc/prometheus-nginxlog-exporter.yml
+#      - ./test_conf/nginx/logs:/var/log/nginx
+#    command: -config-file /etc/prometheus-nginxlog-exporter.yml
+    networks:
+      vpcbr:
+        ipv4_address: 10.5.0.235
+
+  nginx_proxy:
+    image: nicholasjackson/consul-envoy:1.15.4-v1.27.2
+    container_name: nginx-proxy
+    restart: always
+    environment:
+      CONSUL_HTTP_ADDR: 10.5.0.2:8500
+      CONSUL_GRPC_ADDR: 10.5.0.2:8502
+      SERVICE_CONFIG: /config/nginx.hcl
+      CENTRAL_CONFIG_DIR: /central_config
+    volumes:
+      - "./service_config:/config"
+      - "./central_config:/central_config"
+    command: ["consul", "connect", "envoy","-sidecar-for", "nginx", "-ignore-envoy-compatibility=true"]
+    network_mode: "service:nginx"
+
+  # Define api v1 service and envoy sidecar proxy
+  nodejs:
+    image: my_node
+    container_name: nodejs
+    restart: always
+    expose:
+      - 30200
+    networks:
+      vpcbr:
+        ipv4_address: 10.5.0.4
+  nodejs_proxy:
+    image: nicholasjackson/consul-envoy:1.15.4-v1.27.2
+    container_name: nodejs-proxy 
+    restart: always
+    environment:
+      CONSUL_HTTP_ADDR: 10.5.0.2:8500
+      CONSUL_GRPC_ADDR: 10.5.0.2:8502
+      SERVICE_CONFIG: /config/nodejs.hcl
+      CENTRAL_CONFIG_DIR: /central_config
+    volumes:
+      - "./service_config:/config"
+      - "./central_config:/central_config"
+    command: ["consul", "connect", "envoy","-sidecar-for", "nodejs", "-ignore-envoy-compatibility=true"]
+    network_mode: "service:nodejs"
+
+  haproxy:
+    image: haproxy:latest
+    container_name: haproxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8404:8404"
+    networks:
+      vpcbr:
+        ipv4_address: 10.5.0.30
+    volumes:
+      - 'haproxy:/usr/local/etc/haproxy'
+  haproxy_proxy:
+    image: nicholasjackson/consul-envoy:1.15.4-v1.27.2
+    container_name: haproxy-proxy
+    restart: always
+    environment:
+      CONSUL_HTTP_ADDR: 10.5.0.2:8500
+      CONSUL_GRPC_ADDR: 10.5.0.2:8502
+      SERVICE_CONFIG: /config/haproxy.hcl
+      CENTRAL_CONFIG_DIR: /central_config
+    volumes:
+      - "./service_config:/config"
+      - "./central_config:/central_config"
+    command: ["consul", "connect", "envoy","-sidecar-for", "haproxy", "-ignore-envoy-compatibility=true"]
+    network_mode: "service:haproxy"
+  # Define web service and envoy sidecar proxy
+
+  ### api
+  api1:
+    image: admin1125/api1
+    container_name: api1
+    ports:
+      - "8080:8080"
+    networks:
+      vpcbr:
+        ipv4_address: 10.5.0.50
+  api1_proxy:
+    image: nicholasjackson/consul-envoy:1.15.4-v1.27.2
+    container_name: api1-proxy
+    restart: always
+    environment:
+      CONSUL_HTTP_ADDR: 10.5.0.2:8500
+      CONSUL_GRPC_ADDR: 10.5.0.2:8502
+      SERVICE_CONFIG: /config/api1.hcl
+      CENTRAL_CONFIG_DIR: /central_config
+    volumes:
+      - "./service_config:/config"
+      - "./central_config:/central_config"
+    command: ["consul", "connect", "envoy","-sidecar-for", "api1", "-ignore-envoy-compatibility=true"]
+    network_mode: "service:api1"
+
+  # Define api v1 service and envoy sidecar proxy
+  api2:
+    image: admin1125/api2
+    container_name: api2
+    restart: always
+    ports:
+      - "8081:8081"
+    networks:
+      vpcbr:
+        ipv4_address: 10.5.0.60
+  api2_proxy:
+    image: nicholasjackson/consul-envoy:1.15.4-v1.27.2
+    container_name: api2-proxy
+    restart: always
+    environment:
+      CONSUL_HTTP_ADDR: 10.5.0.2:8500
+      CONSUL_GRPC_ADDR: 10.5.0.2:8502
+      SERVICE_CONFIG: /config/api2.hcl
+      CENTRAL_CONFIG_DIR: /central_config
+    volumes:
+      - "./service_config:/config"
+      - "./central_config:/central_config"
+    command: ["consul", "connect", "envoy","-sidecar-for", "api2", "-ignore-envoy-compatibility=true"]
+    network_mode: "service:api2"
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - "./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml"
+    networks:
+      vpcbr:
+        ipv4_address: 10.5.0.6
+  
+  promviz:
+    container_name: promviz
+    image: nghialv2607/promviz:v0.1.0
+    ports:
+      - 9091:9091
+    volumes:
+      - ./full.yaml:/etc/promviz/promviz.yaml
+    networks:
+      vpcbr:
+        ipv4_address: 10.5.0.100
+
+  promviz-front:
+    container_name: promviz-front
+    image: mjhddevlion/promviz-front:v0.1.0
+    ports:
+      - 10100:8080
+    environment:
+      - UPDATE_URL=http://prometric.study.breezelab.io/graph
+      - INTERVAL=10000
+      - MAX_REPLAY_OFFSET=43200
+    networks:
+      vpcbr:
+        ipv4_address: 10.5.0.101
+
+  target:
+    container_name: target
+    networks:
+      vpcbr:
+        ipv4_address: 10.5.0.102
+    build: ./prometheus-mock
+    ports:
+     - 30001:30001
+
+networks:
+  vpcbr:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.5.0.0/16
+volumes:
+  haproxy:
+    external: true

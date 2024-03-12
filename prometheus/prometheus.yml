@@ -1,0 +1,26 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'envoy'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['10.5.0.3:9102', '10.5.0.4:9102', '10.5.0.30:9102','10.5.0.50:9102','10.5.0.60:9102']
+        labels:
+          group: 'envoy'
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:4040']
+        labels:
+          group: 'nginx'
+  - job_name: 'target'
+    static_configs:
+      - targets: ['target:30001']
+  - job_name: 'haproxy'
+    static_configs:
+      - targets: ['haproxy:8404']
+

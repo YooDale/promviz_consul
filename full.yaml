@@ -1,0 +1,45 @@
+graphName: Demo
+
+globalLevel:
+  maxVolume: 1200
+  clusterConnections:
+    - query: cluster:http_requests_total:rate2m
+      prometheusURL: http://prometheus:9090
+      source:
+        label: source
+      target:
+        label: target
+      status:
+        label: status
+        warningRegex: ^4..$
+        dangerRegex: ^5..$
+
+clusterLevel:
+  - cluster: demo-cluster-1
+    maxVolume: 40000
+    serviceConnections:
+      - query: label_replace(label_replace(rate(haproxy_server_http_responses_total[1m]), "source", "$1", "instance", "(.+)"),"target", "$1", "proxy", "(.+)")
+        prometheusURL: http://prometheus:9090
+        source:
+          label: source
+        target:
+          label: target
+          class: test
+        status:
+          label: code
+          dangerRegex: 5xx
+          warningRegex: 3xx|4xx
+      - query: label_replace(label_replace(rate(envoy_http_downstream_rq_xx[1m]), "source", "$1", "consul_source_service", "(.+)"),"target", "$1", "consul_upstream_service", "(.+)")
+        prometheusURL: http://prometheus:9090
+        source:
+          label: source
+        target:
+          label: target
+          class: test
+        status:
+          label: envoy_response_code_class
+          dangerRegex: 5
+          warningRegex: 3|4
+
+
+
